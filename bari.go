@@ -80,9 +80,9 @@ func (p *Parser) readObject() bool {
 		return false
 	}
 
-	{
-		p.emitEvent(ObjectStartEvent, nil, nil)
+	p.emitEvent(ObjectStartEvent, nil, nil)
 
+	{
 		key, ok = p.readString()
 		if !ok {
 			return false
