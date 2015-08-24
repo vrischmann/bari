@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"unicode"
 )
 
@@ -67,7 +68,6 @@ func (p *Parser) Parse(ch chan Event) {
 
 func (p *Parser) readObject() bool {
 	var key string
-	var value interface{}
 	var ok bool
 
 	r := p.readIgnoreWS()
@@ -83,12 +83,12 @@ func (p *Parser) readObject() bool {
 	p.emitEvent(ObjectStartEvent, nil, nil)
 
 	{
-		key, ok = p.readString()
+		p.emitEvent(ObjectKeyEvent, key, nil)
+
+		ok = p.readString()
 		if !ok {
 			return false
 		}
-
-		p.emitEvent(ObjectKeyEvent, key, nil)
 	}
 
 	r = p.readIgnoreWS()
@@ -98,12 +98,12 @@ func (p *Parser) readObject() bool {
 	}
 
 	{
-		value, ok = p.readValue()
+		p.emitEvent(ObjectValueEvent, nil, nil)
+
+		ok = p.readValue()
 		if !ok {
 			return false
 		}
-
-		p.emitEvent(ObjectValueEvent, value, nil)
 	}
 
 	r = p.readIgnoreWS()
@@ -125,16 +125,88 @@ func (p *Parser) getError() error {
 	return p.err
 }
 
-func (p *Parser) readString() (string, bool) {
+func (p *Parser) readValue() bool {
 	r := p.readIgnoreWS()
 	if r == eof {
 		p.err = errUnexpectedEOF
-		return "", false
+		return false
+	}
+
+	switch {
+	case r == '"':
+		p.unreadRune()
+		return p.readString()
+	case r == '\'':
+		r := p.readRune()
+		if r == eof {
+			return false
+		}
+
+		return true
+	case unicode.IsDigit(r):
+		p.unreadRune()
+		return p.readNumber()
+	}
+
+	return false
+}
+
+func (p *Parser) readNumber() bool {
+	var buf bytes.Buffer
+	isFloat := false
+	for {
+		r := p.readRune()
+		if r == eof {
+			p.err = errUnexpectedEOF
+			return false
+		}
+
+		if r == '.' || r == 'e' {
+			isFloat = true
+		}
+
+		if r != '.' && r != 'e' && r != '+' && r != '-' && !unicode.IsDigit(r) {
+			p.unreadRune()
+			break
+		}
+
+		buf.WriteRune(r)
+	}
+
+	if isFloat {
+		f, err := strconv.ParseFloat(buf.String(), 64)
+		if err != nil {
+			p.err = err
+			return false
+		}
+
+		p.emitEvent(NumberEvent, f, nil)
+
+		return true
+	}
+
+	i, err := strconv.ParseInt(buf.String(), 10, 64)
+	if err != nil {
+		p.err = err
+		return false
+	}
+
+	p.emitEvent(NumberEvent, i, nil)
+
+	return true
+}
+
+// TODO(vincent): handle UTF-8 encoded strings
+func (p *Parser) readString() bool {
+	r := p.readIgnoreWS()
+	if r == eof {
+		p.err = errUnexpectedEOF
+		return false
 	}
 
 	if r != '"' {
 		p.err = fmt.Errorf("expected \" but got %c", r)
-		return "", false
+		return false
 	}
 
 	var buf bytes.Buffer
@@ -142,7 +214,7 @@ func (p *Parser) readString() (string, bool) {
 		r = p.readRune()
 		if r == eof {
 			p.err = errUnexpectedEOF
-			return "", false
+			return false
 		}
 
 		if r == '"' {
@@ -152,24 +224,9 @@ func (p *Parser) readString() (string, bool) {
 		buf.WriteRune(r)
 	}
 
-	return buf.String(), true
-}
+	p.emitEvent(StringEvent, buf.String(), nil)
 
-func (p *Parser) readValue() (interface{}, bool) {
-	r := p.readIgnoreWS()
-	if r == eof {
-		p.err = errUnexpectedEOF
-		return nil, false
-	}
-
-	switch r {
-	case '"':
-		p.unreadRune()
-		val, ok := p.readString()
-		return val, ok
-	}
-
-	return nil, false
+	return true
 }
 
 func (p *Parser) readIgnoreWS() rune {
