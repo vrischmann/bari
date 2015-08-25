@@ -1,12 +1,18 @@
 package bari_test
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"github.com/vrischmann/bari"
 )
+
+func ck(t testing.TB, evt bari.Event, typ bari.EventType, value interface{}, err error) {
+	require.Equal(t, typ, evt.Type)
+	require.Equal(t, value, evt.Value)
+	require.Equal(t, err, evt.Error)
+}
 
 func TestParse(t *testing.T) {
 	const data = `{"foo": "bar"}`
@@ -19,9 +25,11 @@ func TestParse(t *testing.T) {
 		close(ch)
 	}()
 
-	for evt := range ch {
-		fmt.Printf("%+v\n", evt)
-	}
+	ck(t, <-ch, bari.ObjectStartEvent, nil, nil)
+	ck(t, <-ch, bari.ObjectKeyEvent, nil, nil)
+	ck(t, <-ch, bari.StringEvent, "foo", nil)
+	ck(t, <-ch, bari.ObjectValueEvent, nil, nil)
+	ck(t, <-ch, bari.StringEvent, "bar", nil)
 }
 
 func TestParseNumber(t *testing.T) {
@@ -35,7 +43,9 @@ func TestParseNumber(t *testing.T) {
 		close(ch)
 	}()
 
-	for evt := range ch {
-		fmt.Printf("%+v\n", evt)
-	}
+	ck(t, <-ch, bari.ObjectStartEvent, nil, nil)
+	ck(t, <-ch, bari.ObjectKeyEvent, nil, nil)
+	ck(t, <-ch, bari.StringEvent, "foo", nil)
+	ck(t, <-ch, bari.ObjectValueEvent, nil, nil)
+	ck(t, <-ch, bari.NumberEvent, 10.0, nil)
 }

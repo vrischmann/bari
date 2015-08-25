@@ -67,9 +67,6 @@ func (p *Parser) Parse(ch chan Event) {
 }
 
 func (p *Parser) readObject() bool {
-	var key string
-	var ok bool
-
 	r := p.readIgnoreWS()
 	if r == eof {
 		return false
@@ -83,9 +80,9 @@ func (p *Parser) readObject() bool {
 	p.emitEvent(ObjectStartEvent, nil, nil)
 
 	{
-		p.emitEvent(ObjectKeyEvent, key, nil)
+		p.emitEvent(ObjectKeyEvent, nil, nil)
 
-		ok = p.readString()
+		ok := p.readString()
 		if !ok {
 			return false
 		}
@@ -100,7 +97,7 @@ func (p *Parser) readObject() bool {
 	{
 		p.emitEvent(ObjectValueEvent, nil, nil)
 
-		ok = p.readValue()
+		ok := p.readValue()
 		if !ok {
 			return false
 		}
