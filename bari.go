@@ -41,6 +41,7 @@ type Parser struct {
 	ch  chan Event
 }
 
+// TODO(vincent): change this API
 func NewParser(r io.Reader) *Parser {
 	return &Parser{
 		br: bufio.NewReader(r),
