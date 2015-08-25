@@ -80,6 +80,13 @@ func (p *Parser) readObject() bool {
 
 	p.emitEvent(ObjectStartEvent, nil, nil)
 
+	r = p.readIgnoreWS()
+	if r == '}' {
+		p.emitEvent(ObjectEndEvent, nil, nil)
+		return true
+	}
+	p.unreadRune()
+
 	{
 		p.emitEvent(ObjectKeyEvent, nil, nil)
 
