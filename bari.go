@@ -148,12 +148,49 @@ func (p *Parser) readValue() bool {
 		}
 
 		return true
+	case r == 'f' || r == 't':
+		p.unreadRune()
+		return p.readBoolean()
 	case unicode.IsDigit(r):
 		p.unreadRune()
 		return p.readNumber()
 	}
 
 	return false
+}
+
+func (p *Parser) readBoolean() bool {
+	var buf bytes.Buffer
+
+	for i := 0; i < 4; i++ {
+		r := p.readRune()
+		if r == eof {
+			p.err = errUnexpectedEOF
+			return false
+		}
+
+		buf.WriteRune(r)
+	}
+
+	if buf.String() == "true" {
+		p.emitEvent(BooleanEvent, true, nil)
+		return true
+	}
+
+	r := p.readRune()
+	if r == eof {
+		p.err = errUnexpectedEOF
+		return false
+	}
+
+	if r != 'e' {
+		p.err = fmt.Errorf("expected e but got %c", r)
+		return false
+	}
+
+	p.emitEvent(BooleanEvent, false, nil)
+
+	return true
 }
 
 func (p *Parser) readNumber() bool {
