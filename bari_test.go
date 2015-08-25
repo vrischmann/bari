@@ -1,6 +1,7 @@
 package bari_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -14,38 +15,96 @@ func ck(t testing.TB, evt bari.Event, typ bari.EventType, value interface{}, err
 	require.Equal(t, err, evt.Error)
 }
 
-func TestParse(t *testing.T) {
-	const data = `{"foo": "bar"}`
-
-	parser := bari.NewParser(strings.NewReader(data))
-	ch := make(chan bari.Event)
-
-	go func() {
-		parser.Parse(ch)
-		close(ch)
-	}()
-
-	ck(t, <-ch, bari.ObjectStartEvent, nil, nil)
-	ck(t, <-ch, bari.ObjectKeyEvent, nil, nil)
-	ck(t, <-ch, bari.StringEvent, "foo", nil)
-	ck(t, <-ch, bari.ObjectValueEvent, nil, nil)
-	ck(t, <-ch, bari.StringEvent, "bar", nil)
+type expectedEvent struct {
+	typ   bari.EventType
+	value interface{}
+	err   error
 }
 
-func TestParseNumber(t *testing.T) {
-	const data = `{"foo": 10.0}`
+type testCase struct {
+	data   string
+	events []expectedEvent
+}
 
-	parser := bari.NewParser(strings.NewReader(data))
-	ch := make(chan bari.Event)
+var testCases = []testCase{
+	{
+		`{}`,
+		[]expectedEvent{
+			{bari.ObjectStartEvent, nil, nil},
+			{bari.ObjectEndEvent, nil, nil},
+		},
+	},
+	{
+		`{"foo": "bar"}`,
+		[]expectedEvent{
+			{bari.ObjectStartEvent, nil, nil},
+			{bari.ObjectKeyEvent, nil, nil},
+			{bari.StringEvent, "foo", nil},
+			{bari.ObjectValueEvent, nil, nil},
+			{bari.StringEvent, "bar", nil},
+			{bari.ObjectEndEvent, nil, nil},
+		},
+	},
+	{
+		`{"foo": 10}`,
+		[]expectedEvent{
+			{bari.ObjectStartEvent, nil, nil},
+			{bari.ObjectKeyEvent, nil, nil},
+			{bari.StringEvent, "foo", nil},
+			{bari.ObjectValueEvent, nil, nil},
+			{bari.NumberEvent, int64(10), nil},
+			{bari.ObjectEndEvent, nil, nil},
+		},
+	},
+	{
+		`{"foo": 10.0}`,
+		[]expectedEvent{
+			{bari.ObjectStartEvent, nil, nil},
+			{bari.ObjectKeyEvent, nil, nil},
+			{bari.StringEvent, "foo", nil},
+			{bari.ObjectValueEvent, nil, nil},
+			{bari.NumberEvent, float64(10), nil},
+			{bari.ObjectEndEvent, nil, nil},
+		},
+	},
+	{
+		`{"foo": true}`,
+		[]expectedEvent{
+			{bari.ObjectStartEvent, nil, nil},
+			{bari.ObjectKeyEvent, nil, nil},
+			{bari.StringEvent, "foo", nil},
+			{bari.ObjectValueEvent, nil, nil},
+			{bari.BooleanEvent, true, nil},
+			{bari.ObjectEndEvent, nil, nil},
+		},
+	},
+	{
+		`{"foo": false}`,
+		[]expectedEvent{
+			{bari.ObjectStartEvent, nil, nil},
+			{bari.ObjectKeyEvent, nil, nil},
+			{bari.StringEvent, "foo", nil},
+			{bari.ObjectValueEvent, nil, nil},
+			{bari.BooleanEvent, false, nil},
+			{bari.ObjectEndEvent, nil, nil},
+		},
+	},
+}
 
-	go func() {
-		parser.Parse(ch)
-		close(ch)
-	}()
+func TestParse(t *testing.T) {
+	for _, c := range testCases {
+		parser := bari.NewParser(strings.NewReader(c.data))
+		ch := make(chan bari.Event)
 
-	ck(t, <-ch, bari.ObjectStartEvent, nil, nil)
-	ck(t, <-ch, bari.ObjectKeyEvent, nil, nil)
-	ck(t, <-ch, bari.StringEvent, "foo", nil)
-	ck(t, <-ch, bari.ObjectValueEvent, nil, nil)
-	ck(t, <-ch, bari.NumberEvent, 10.0, nil)
+		go func() {
+			parser.Parse(ch)
+			close(ch)
+		}()
+
+		for _, evt := range c.events {
+			ev := <-ch
+			fmt.Printf("%+v\n", ev)
+			ck(t, ev, evt.typ, evt.value, evt.err)
+		}
+	}
 }
