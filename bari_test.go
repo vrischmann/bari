@@ -118,6 +118,12 @@ var testCases = []testCase{
 	// Invalid test cases
 
 	{
+		``,
+		[]expectedEvent{
+			{bari.EOFEvent, nil, bari.ParseError{"unexpected end of file", 1, 0}},
+		},
+	},
+	{
 		`{f}`,
 		[]expectedEvent{
 			{bari.ObjectStartEvent, nil, nil},
@@ -136,7 +142,7 @@ var testCases = []testCase{
 }
 
 func TestParse(t *testing.T) {
-	for _, c := range testCases {
+	for i, c := range testCases {
 		parser := bari.NewParser(strings.NewReader(c.data))
 		ch := make(chan bari.Event)
 
@@ -147,7 +153,7 @@ func TestParse(t *testing.T) {
 
 		for _, evt := range c.events {
 			ev := <-ch
-			fmt.Printf("%+v\n", ev)
+			fmt.Printf("case %d: %+v\n", i, ev)
 			ck(t, ev, evt.typ, evt.value, evt.err)
 		}
 	}
