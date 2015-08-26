@@ -95,7 +95,7 @@ loop:
 
 		// EOF is valid here because we read either a full object or a full array
 		// and we need to allow parsing fixed-size data
-		r := p.readRune()
+		r := p.readIgnoreWS()
 		if r == eof {
 			break
 		}
