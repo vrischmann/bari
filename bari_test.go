@@ -100,18 +100,83 @@ var testCases = []testCase{
 			{bari.ObjectEndEvent, nil, nil},
 		},
 	},
+	{
+		`{"foo": []}`,
+		[]expectedEvent{
+			{bari.ObjectStartEvent, nil, nil},
+			{bari.ObjectKeyEvent, nil, nil},
+			{bari.StringEvent, "foo", nil},
+			{bari.ObjectValueEvent, nil, nil},
+			{bari.ArrayStartEvent, nil, nil},
+			{bari.ArrayEndEvent, nil, nil},
+		},
+	},
+	{
+		`{"foo": ["a", "b"]}`,
+		[]expectedEvent{
+			{bari.ObjectStartEvent, nil, nil},
+			{bari.ObjectKeyEvent, nil, nil},
+			{bari.StringEvent, "foo", nil},
+			{bari.ObjectValueEvent, nil, nil},
+			{bari.ArrayStartEvent, nil, nil},
+			{bari.StringEvent, "a", nil},
+			{bari.StringEvent, "b", nil},
+			{bari.ArrayEndEvent, nil, nil},
+			{bari.ObjectEndEvent, nil, nil},
+		},
+	},
+	{
+		`{"foo": "bar", "qux": "baz"}}`,
+		[]expectedEvent{
+			{bari.ObjectStartEvent, nil, nil},
+			{bari.ObjectKeyEvent, nil, nil},
+			{bari.StringEvent, "foo", nil},
+			{bari.ObjectValueEvent, nil, nil},
+			{bari.StringEvent, "bar", nil},
+			{bari.ObjectKeyEvent, nil, nil},
+			{bari.StringEvent, "qux", nil},
+			{bari.ObjectValueEvent, nil, nil},
+			{bari.StringEvent, "baz", nil},
+			{bari.ObjectEndEvent, nil, nil},
+		},
+	},
 	// {
-	// 	`{"foo": ["a", "b"]}`,
+	// 	`{"foo": [{"a": true, "b": false}, {"b": 10.0, "c": [1, 2, 3]}]}`,
 	// 	[]expectedEvent{
 	// 		{bari.ObjectStartEvent, nil, nil},
 	// 		{bari.ObjectKeyEvent, nil, nil},
 	// 		{bari.StringEvent, "foo", nil},
 	// 		{bari.ObjectValueEvent, nil, nil},
-	// 		{bari.ArrayStartEvent, false, nil},
+	// 		{bari.ArrayStartEvent, nil, nil},
+	//
+	// 		{bari.ObjectStartEvent, nil, nil},
+	// 		{bari.ObjectKeyEvent, nil, nil},
 	// 		{bari.StringEvent, "a", nil},
+	// 		{bari.ObjectValueEvent, nil, nil},
+	// 		{bari.BooleanEvent, true, nil},
+	// 		{bari.ObjectKeyEvent, nil, nil},
 	// 		{bari.StringEvent, "b", nil},
-	// 		{bari.ArrayEndEvent, false, nil},
-	// 		{bari.ObjectEndEvent, false, nil},
+	// 		{bari.ObjectValueEvent, nil, nil},
+	// 		{bari.BooleanEvent, false, nil},
+	// 		{bari.ObjectEndEvent, nil, nil},
+	//
+	// 		{bari.ObjectStartEvent, nil, nil},
+	// 		{bari.ObjectKeyEvent, nil, nil},
+	// 		{bari.StringEvent, "b", nil},
+	// 		{bari.ObjectValueEvent, nil, nil},
+	// 		{bari.NumberEvent, float64(10), nil},
+	// 		{bari.ObjectKeyEvent, nil, nil},
+	// 		{bari.StringEvent, "b", nil},
+	// 		{bari.ObjectValueEvent, nil, nil},
+	// 		{bari.ArrayStartEvent, false, nil},
+	// 		{bari.NumberEvent, int64(1), nil},
+	// 		{bari.NumberEvent, int64(2), nil},
+	// 		{bari.NumberEvent, int64(3), nil},
+	// 		{bari.ArrayEndEvent, nil, nil},
+	// 		{bari.ObjectEndEvent, nil, nil},
+	//
+	// 		{bari.ArrayEndEvent, nil, nil},
+	// 		{bari.ObjectEndEvent, nil, nil},
 	// 	},
 	// },
 
@@ -145,6 +210,29 @@ var testCases = []testCase{
 			{bari.EOFEvent, nil, bari.ParseError{"unexpected character a", 1, 1}},
 		},
 	},
+	{
+		`[`,
+		[]expectedEvent{
+			{bari.ArrayStartEvent, nil, nil},
+			{bari.EOFEvent, nil, bari.ParseError{"unexpected end of file", 1, 1}},
+		},
+	},
+	{
+		`["a"`,
+		[]expectedEvent{
+			{bari.ArrayStartEvent, nil, nil},
+			{bari.StringEvent, "a", nil},
+			{bari.EOFEvent, nil, bari.ParseError{"unexpected end of file", 1, 4}},
+		},
+	},
+	{
+		`["a", `,
+		[]expectedEvent{
+			{bari.ArrayStartEvent, nil, nil},
+			{bari.StringEvent, "a", nil},
+			{bari.EOFEvent, nil, bari.ParseError{"unexpected end of file", 1, 6}},
+		},
+	},
 }
 
 func TestParse(t *testing.T) {
@@ -159,7 +247,7 @@ func TestParse(t *testing.T) {
 
 		for _, evt := range c.events {
 			ev := <-ch
-			fmt.Printf("case %d: %+v\n", i, ev)
+			fmt.Printf("case %d: `%s` %+v\n", i, c.data, ev)
 			ck(t, ev, evt.typ, evt.value, evt.err)
 		}
 	}
