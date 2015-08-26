@@ -260,6 +260,9 @@ func (p *Parser) readValue() bool {
 	case r == '[':
 		p.unreadRune()
 		return p.readArray()
+	default:
+		p.serr("unexpected character %c", r)
+		return false
 	}
 
 	return false
