@@ -72,9 +72,25 @@ var (
 
 func (p *Parser) Parse(ch chan Event) {
 	p.ch = ch
+loop:
 	for {
-		if !p.readObject() {
-			break
+		switch r := p.readRune(); r {
+		case eof:
+			p.serr2(errUnexpectedEOF)
+			break loop
+		case '{':
+			p.unreadRune()
+			if !p.readObject() {
+				break loop
+			}
+		case '[':
+			p.unreadRune()
+			if !p.readArray() {
+				break loop
+			}
+		default:
+			p.serr("unexpected character %c", r)
+			break loop
 		}
 
 		p.resetState()
@@ -144,6 +160,10 @@ func (p *Parser) readObject() bool {
 	p.emitEvent(ObjectEndEvent, nil, nil)
 
 	return true
+}
+
+func (p *Parser) readArray() bool {
+	return false
 }
 
 func (p *Parser) getError() error {

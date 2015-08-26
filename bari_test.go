@@ -139,6 +139,12 @@ var testCases = []testCase{
 			{bari.EOFEvent, nil, bari.ParseError{"unexpected end of file", 1, 2}},
 		},
 	},
+	{
+		`a`,
+		[]expectedEvent{
+			{bari.EOFEvent, nil, bari.ParseError{"unexpected character a", 1, 1}},
+		},
+	},
 }
 
 func TestParse(t *testing.T) {
