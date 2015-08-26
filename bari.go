@@ -256,7 +256,6 @@ func (p *Parser) readNumber() bool {
 	return true
 }
 
-// TODO(vincent): handle UTF-8 encoded strings
 func (p *Parser) readString() bool {
 	r := p.readIgnoreWS()
 	if r == eof {
