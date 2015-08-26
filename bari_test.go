@@ -46,6 +46,17 @@ var testCases = []testCase{
 		},
 	},
 	{
+		`{"foo": "\u265e\u2602"}`,
+		[]expectedEvent{
+			{bari.ObjectStartEvent, nil, nil},
+			{bari.ObjectKeyEvent, nil, nil},
+			{bari.StringEvent, "foo", nil},
+			{bari.ObjectValueEvent, nil, nil},
+			{bari.StringEvent, "♞☂", nil},
+			{bari.ObjectEndEvent, nil, nil},
+		},
+	},
+	{
 		`{"foo": 10}`,
 		[]expectedEvent{
 			{bari.ObjectStartEvent, nil, nil},
