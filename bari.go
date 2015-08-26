@@ -93,6 +93,14 @@ loop:
 			break loop
 		}
 
+		// EOF is valid here because we read either a full object or a full array
+		// and we need to allow parsing fixed-size data
+		r := p.readRune()
+		if r == eof {
+			break
+		}
+		p.unreadRune()
+
 		p.resetState()
 	}
 
