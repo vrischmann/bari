@@ -103,32 +103,9 @@ var testCases = []testCase{
 	// 		{bari.ObjectEndEvent, false, nil},
 	// 	},
 	// },
-}
 
-func TestParse(t *testing.T) {
-	for _, c := range testCases {
-		parser := bari.NewParser(strings.NewReader(c.data))
-		ch := make(chan bari.Event)
+	// Invalid test cases
 
-		go func() {
-			parser.Parse(ch)
-			close(ch)
-		}()
-
-		for _, evt := range c.events {
-			ev := <-ch
-			fmt.Printf("%+v\n", ev)
-			ck(t, ev, evt.typ, evt.value, evt.err)
-		}
-	}
-}
-
-type invalidTestCase struct {
-	data   string
-	events []expectedEvent
-}
-
-var invalidTestCases = []invalidTestCase{
 	{
 		`{f}`,
 		[]expectedEvent{
@@ -147,8 +124,8 @@ var invalidTestCases = []invalidTestCase{
 	},
 }
 
-func TestParseError(t *testing.T) {
-	for _, c := range invalidTestCases {
+func TestParse(t *testing.T) {
+	for _, c := range testCases {
 		parser := bari.NewParser(strings.NewReader(c.data))
 		ch := make(chan bari.Event)
 
