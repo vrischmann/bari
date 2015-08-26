@@ -251,7 +251,7 @@ func (p *Parser) readValue() bool {
 	case r == 'f' || r == 't':
 		p.unreadRune()
 		return p.readBoolean()
-	case unicode.IsDigit(r):
+	case r == '-' || r == '+' || unicode.IsDigit(r):
 		p.unreadRune()
 		return p.readNumber()
 	case r == '{':

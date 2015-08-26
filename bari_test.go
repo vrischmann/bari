@@ -83,6 +83,28 @@ var testCases = []testCase{
 		},
 	},
 	{
+		`{"foo": 10e6}`,
+		[]expectedEvent{
+			{bari.ObjectStartEvent, nil, nil},
+			{bari.ObjectKeyEvent, nil, nil},
+			{bari.StringEvent, "foo", nil},
+			{bari.ObjectValueEvent, nil, nil},
+			{bari.NumberEvent, float64(10e6), nil},
+			{bari.ObjectEndEvent, nil, nil},
+		},
+	},
+	{
+		`{"foo": -1.3}`,
+		[]expectedEvent{
+			{bari.ObjectStartEvent, nil, nil},
+			{bari.ObjectKeyEvent, nil, nil},
+			{bari.StringEvent, "foo", nil},
+			{bari.ObjectValueEvent, nil, nil},
+			{bari.NumberEvent, float64(-1.3), nil},
+			{bari.ObjectEndEvent, nil, nil},
+		},
+	},
+	{
 		`{"foo": true}`,
 		[]expectedEvent{
 			{bari.ObjectStartEvent, nil, nil},
