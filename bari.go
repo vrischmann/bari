@@ -127,34 +127,37 @@ func (p *Parser) readObject() bool {
 	}
 	p.unreadRune()
 
-	{
+	for {
 		p.emitEvent(ObjectKeyEvent, nil, nil)
 
 		ok := p.readString()
 		if !ok {
 			return false
 		}
-	}
 
-	r = p.readIgnoreWS()
-	if r != ':' {
-		p.serr("expected : but got %c", r)
-		return false
-	}
+		r := p.readIgnoreWS()
+		if r != ':' {
+			p.serr("expected : but got %c", r)
+			return false
+		}
 
-	{
 		p.emitEvent(ObjectValueEvent, nil, nil)
 
-		ok := p.readValue()
+		ok = p.readValue()
 		if !ok {
 			return false
 		}
-	}
 
-	r = p.readIgnoreWS()
-	if r != '}' {
-		p.serr("expected } but got %c", r)
-		return false
+		r = p.readIgnoreWS()
+		if r == eof {
+			p.serr2(errUnexpectedEOF)
+			return false
+		} else if r == '}' {
+			break
+		} else if r != ',' {
+			p.serr("expected , but got %c", r)
+			return false
+		}
 	}
 
 	p.emitEvent(ObjectEndEvent, nil, nil)
@@ -163,7 +166,52 @@ func (p *Parser) readObject() bool {
 }
 
 func (p *Parser) readArray() bool {
-	return false
+	r := p.readIgnoreWS()
+	if r == eof {
+		p.serr2(errUnexpectedEOF)
+		return false
+	}
+
+	if r != '[' {
+		p.serr("expected [ but got %c", r)
+		return false
+	}
+
+	p.emitEvent(ArrayStartEvent, nil, nil)
+
+	r = p.readIgnoreWS()
+	if r == eof {
+		p.serr2(errUnexpectedEOF)
+		return false
+	}
+
+	if r == ']' {
+		p.emitEvent(ArrayEndEvent, nil, nil)
+		return true
+	}
+	p.unreadRune()
+
+	for {
+		ok := p.readValue()
+		if !ok {
+			return false
+		}
+
+		r := p.readIgnoreWS()
+		if r == eof {
+			p.serr2(errUnexpectedEOF)
+			return false
+		} else if r == ']' {
+			break
+		} else if r != ',' {
+			p.serr("expected , but got %c", r)
+			return false
+		}
+	}
+
+	p.emitEvent(ArrayEndEvent, nil, nil)
+
+	return true
 }
 
 func (p *Parser) getError() error {
@@ -198,6 +246,12 @@ func (p *Parser) readValue() bool {
 	case unicode.IsDigit(r):
 		p.unreadRune()
 		return p.readNumber()
+	case r == '{':
+		p.unreadRune()
+		return p.readObject()
+	case r == '[':
+		p.unreadRune()
+		return p.readArray()
 	}
 
 	return false
