@@ -39,19 +39,33 @@ type Parser struct {
 
 	err error
 	ch  chan Event
+
+	unreadChangesLine bool
+	line              int
+	position          int
 }
 
-// TODO(vincent): change this API
+type ParseError struct {
+	Message  string
+	Line     int
+	Position int
+}
+
+func (p ParseError) Error() string {
+	return fmt.Sprintf("ParseError: l:%d pos:%d msg:%s", p.Line, p.Position, p.Message)
+}
+
 func NewParser(r io.Reader) *Parser {
 	return &Parser{
-		br: bufio.NewReader(r),
+		br:   bufio.NewReader(r),
+		line: 1,
 	}
 }
 
 var (
 	eof = rune(0)
 
-	errUnexpectedEOF = errors.New("unexpected eof")
+	errUnexpectedEOF = errors.New("unexpected end of file")
 )
 
 func (p *Parser) Parse(ch chan Event) {
@@ -60,6 +74,8 @@ func (p *Parser) Parse(ch chan Event) {
 		if !p.readObject() {
 			break
 		}
+
+		p.resetState()
 	}
 
 	if err := p.getError(); err != nil {
@@ -74,7 +90,7 @@ func (p *Parser) readObject() bool {
 	}
 
 	if r != '{' {
-		p.err = fmt.Errorf("expected { but got %c", r)
+		p.serr("expected { but got %c", r)
 		return false
 	}
 
@@ -98,7 +114,7 @@ func (p *Parser) readObject() bool {
 
 	r = p.readIgnoreWS()
 	if r != ':' {
-		p.err = fmt.Errorf("expected : but got %c", r)
+		p.serr("expected : but got %c", r)
 		return false
 	}
 
@@ -113,7 +129,7 @@ func (p *Parser) readObject() bool {
 
 	r = p.readIgnoreWS()
 	if r != '}' {
-		p.err = fmt.Errorf("expected } but got %c", r)
+		p.serr("expected } but got %c", r)
 		return false
 	}
 
@@ -133,7 +149,7 @@ func (p *Parser) getError() error {
 func (p *Parser) readValue() bool {
 	r := p.readIgnoreWS()
 	if r == eof {
-		p.err = errUnexpectedEOF
+		p.serr2(errUnexpectedEOF)
 		return false
 	}
 
@@ -165,7 +181,7 @@ func (p *Parser) readBoolean() bool {
 	for i := 0; i < 4; i++ {
 		r := p.readRune()
 		if r == eof {
-			p.err = errUnexpectedEOF
+			p.serr2(errUnexpectedEOF)
 			return false
 		}
 
@@ -179,12 +195,12 @@ func (p *Parser) readBoolean() bool {
 
 	r := p.readRune()
 	if r == eof {
-		p.err = errUnexpectedEOF
+		p.serr2(errUnexpectedEOF)
 		return false
 	}
 
 	if r != 'e' {
-		p.err = fmt.Errorf("expected e but got %c", r)
+		p.serr("expected e but got %c", r)
 		return false
 	}
 
@@ -199,7 +215,7 @@ func (p *Parser) readNumber() bool {
 	for {
 		r := p.readRune()
 		if r == eof {
-			p.err = errUnexpectedEOF
+			p.serr2(errUnexpectedEOF)
 			return false
 		}
 
@@ -218,7 +234,7 @@ func (p *Parser) readNumber() bool {
 	if isFloat {
 		f, err := strconv.ParseFloat(buf.String(), 64)
 		if err != nil {
-			p.err = err
+			p.serr2(err)
 			return false
 		}
 
@@ -229,7 +245,7 @@ func (p *Parser) readNumber() bool {
 
 	i, err := strconv.ParseInt(buf.String(), 10, 64)
 	if err != nil {
-		p.err = err
+		p.serr2(err)
 		return false
 	}
 
@@ -242,12 +258,12 @@ func (p *Parser) readNumber() bool {
 func (p *Parser) readString() bool {
 	r := p.readIgnoreWS()
 	if r == eof {
-		p.err = errUnexpectedEOF
+		p.serr2(errUnexpectedEOF)
 		return false
 	}
 
 	if r != '"' {
-		p.err = fmt.Errorf("expected \" but got %c", r)
+		p.serr("expected \" but got %c", r)
 		return false
 	}
 
@@ -255,7 +271,7 @@ func (p *Parser) readString() bool {
 	for {
 		r = p.readRune()
 		if r == eof {
-			p.err = errUnexpectedEOF
+			p.serr2(errUnexpectedEOF)
 			return false
 		}
 
@@ -282,13 +298,28 @@ func (p *Parser) readIgnoreWS() rune {
 }
 
 func (p *Parser) unreadRune() {
+	p.position--
+	if p.unreadChangesLine {
+		p.line--
+		p.position = 0
+	}
 	p.br.UnreadRune()
 }
 
 func (p *Parser) readRune() rune {
 	r, _, err := p.br.ReadRune()
 	if err != nil {
+		p.err = err
 		return eof
+	}
+
+	p.position++
+	if r == '\n' {
+		p.line++
+		p.position = 0
+		p.unreadChangesLine = true
+	} else {
+		p.unreadChangesLine = false
 	}
 
 	return r
@@ -296,4 +327,25 @@ func (p *Parser) readRune() rune {
 
 func (p *Parser) emitEvent(typ EventType, value interface{}, err error) {
 	p.ch <- Event{typ, value, err}
+}
+
+func (p *Parser) serr(format string, args ...interface{}) {
+	p.err = ParseError{
+		Message:  fmt.Sprintf(format, args...),
+		Line:     p.line,
+		Position: p.position,
+	}
+}
+
+func (p *Parser) serr2(err error) {
+	p.err = ParseError{
+		Message:  err.Error(),
+		Line:     p.line,
+		Position: p.position,
+	}
+}
+
+func (p *Parser) resetState() {
+	p.line = 1
+	p.position = 0
 }

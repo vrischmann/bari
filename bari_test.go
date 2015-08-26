@@ -89,10 +89,66 @@ var testCases = []testCase{
 			{bari.ObjectEndEvent, nil, nil},
 		},
 	},
+	// {
+	// 	`{"foo": ["a", "b"]}`,
+	// 	[]expectedEvent{
+	// 		{bari.ObjectStartEvent, nil, nil},
+	// 		{bari.ObjectKeyEvent, nil, nil},
+	// 		{bari.StringEvent, "foo", nil},
+	// 		{bari.ObjectValueEvent, nil, nil},
+	// 		{bari.ArrayStartEvent, false, nil},
+	// 		{bari.StringEvent, "a", nil},
+	// 		{bari.StringEvent, "b", nil},
+	// 		{bari.ArrayEndEvent, false, nil},
+	// 		{bari.ObjectEndEvent, false, nil},
+	// 	},
+	// },
 }
 
 func TestParse(t *testing.T) {
 	for _, c := range testCases {
+		parser := bari.NewParser(strings.NewReader(c.data))
+		ch := make(chan bari.Event)
+
+		go func() {
+			parser.Parse(ch)
+			close(ch)
+		}()
+
+		for _, evt := range c.events {
+			ev := <-ch
+			fmt.Printf("%+v\n", ev)
+			ck(t, ev, evt.typ, evt.value, evt.err)
+		}
+	}
+}
+
+type invalidTestCase struct {
+	data   string
+	events []expectedEvent
+}
+
+var invalidTestCases = []invalidTestCase{
+	{
+		`{f}`,
+		[]expectedEvent{
+			{bari.ObjectStartEvent, nil, nil},
+			{bari.ObjectKeyEvent, nil, nil},
+			{bari.EOFEvent, nil, bari.ParseError{"expected \" but got f", 1, 2}},
+		},
+	},
+	{
+		`{"`,
+		[]expectedEvent{
+			{bari.ObjectStartEvent, nil, nil},
+			{bari.ObjectKeyEvent, nil, nil},
+			{bari.EOFEvent, nil, bari.ParseError{"unexpected end of file", 1, 2}},
+		},
+	},
+}
+
+func TestParseError(t *testing.T) {
+	for _, c := range invalidTestCases {
 		parser := bari.NewParser(strings.NewReader(c.data))
 		ch := make(chan bari.Event)
 
