@@ -259,6 +259,27 @@ var testCases = []testCase{
 			{bari.EOFEvent, nil, bari.ParseError{"unexpected end of file", 1, 6}},
 		},
 	},
+
+	// Multi object stream
+
+	{
+		`{"foo": "bar"}       {"bar": "baz"}`,
+		[]expectedEvent{
+			{bari.ObjectStartEvent, nil, nil},
+			{bari.ObjectKeyEvent, nil, nil},
+			{bari.StringEvent, "foo", nil},
+			{bari.ObjectValueEvent, nil, nil},
+			{bari.StringEvent, "bar", nil},
+			{bari.ObjectEndEvent, nil, nil},
+
+			{bari.ObjectStartEvent, nil, nil},
+			{bari.ObjectKeyEvent, nil, nil},
+			{bari.StringEvent, "bar", nil},
+			{bari.ObjectValueEvent, nil, nil},
+			{bari.StringEvent, "baz", nil},
+			{bari.ObjectEndEvent, nil, nil},
+		},
+	},
 }
 
 func TestParse(t *testing.T) {
