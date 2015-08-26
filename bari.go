@@ -88,6 +88,7 @@ func (p *Parser) Parse(ch chan Event) {
 func (p *Parser) readObject() bool {
 	r := p.readIgnoreWS()
 	if r == eof {
+		p.serr2(errUnexpectedEOF)
 		return false
 	}
 
@@ -99,6 +100,11 @@ func (p *Parser) readObject() bool {
 	p.emitEvent(ObjectStartEvent, nil, nil)
 
 	r = p.readIgnoreWS()
+	if r == eof {
+		p.serr2(errUnexpectedEOF)
+		return false
+	}
+
 	if r == '}' {
 		p.emitEvent(ObjectEndEvent, nil, nil)
 		return true
