@@ -1,7 +1,11 @@
 package bari_test
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -251,4 +255,55 @@ func TestParse(t *testing.T) {
 			ck(t, ev, evt.typ, evt.value, evt.err)
 		}
 	}
+}
+
+func TestParseTestdata(t *testing.T) {
+	f, err := os.Open("./testdata/code.json.gz")
+	require.Nil(t, err)
+
+	gz, err := gzip.NewReader(f)
+	require.Nil(t, err)
+
+	parser := bari.NewParser(gz)
+	ch := make(chan bari.Event)
+
+	go func() {
+		parser.Parse(ch)
+		close(ch)
+	}()
+
+	for ev := range ch {
+		require.Nil(t, ev.Error)
+	}
+}
+
+func BenchmarkParseTestdata(b *testing.B) {
+	b.StopTimer()
+	b.ReportAllocs()
+
+	f, err := os.Open("./testdata/code.json.gz")
+	require.Nil(b, err)
+
+	gz, err := gzip.NewReader(f)
+	require.Nil(b, err)
+
+	codeJSON, err := ioutil.ReadAll(gz)
+	require.Nil(b, err)
+
+	b.StartTimer()
+
+	for i := 0; i < b.N; i++ {
+		parser := bari.NewParser(bytes.NewReader(codeJSON))
+		ch := make(chan bari.Event)
+
+		go func() {
+			parser.Parse(ch)
+			close(ch)
+		}()
+
+		for ev := range ch {
+			require.Nil(b, ev.Error)
+		}
+	}
+	b.SetBytes(int64(len(codeJSON)))
 }
