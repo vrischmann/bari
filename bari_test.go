@@ -1,7 +1,6 @@
 package bari_test
 
 import (
-	"bytes"
 	"compress/gzip"
 	"fmt"
 	"io/ioutil"
@@ -360,11 +359,14 @@ func TestCyclingReader(t *testing.T) {
 
 func BenchmarkParseSimpleObject(b *testing.B) {
 	b.ReportAllocs()
+	b.StopTimer()
 
 	const data = `{"foo": "bar"}`
 	parser := bari.NewParser(&cyclingReader{data: data})
 	ch := make(chan bari.Event)
 
+	b.StartTimer()
+
 	go func() {
 		parser.Parse(ch)
 	}()
@@ -374,16 +376,20 @@ func BenchmarkParseSimpleObject(b *testing.B) {
 			<-ch
 		}
 	}
+
 	b.SetBytes(int64(len(data)))
 }
 
 func BenchmarkParseMultiObjectStream(b *testing.B) {
 	b.ReportAllocs()
+	b.StopTimer()
 
 	const data = `{"foo": "bar"}{"foo": "bar"}{"foo": "bar"}{"foo": "bar"}`
 	parser := bari.NewParser(&cyclingReader{data: data})
 	ch := make(chan bari.Event)
 
+	b.StartTimer()
+
 	go func() {
 		parser.Parse(ch)
 	}()
@@ -393,15 +399,19 @@ func BenchmarkParseMultiObjectStream(b *testing.B) {
 			<-ch
 		}
 	}
+
 	b.SetBytes(int64(len(data)))
 }
 
 func BenchmarkParseStringWithUnicodeChars(b *testing.B) {
 	b.ReportAllocs()
+	b.StopTimer()
 
 	const data = `{"foo": "\u265e\u2602"}`
 	parser := bari.NewParser(&cyclingReader{data: data})
 	ch := make(chan bari.Event)
+
+	b.StartTimer()
 
 	go func() {
 		parser.Parse(ch)
@@ -412,12 +422,13 @@ func BenchmarkParseStringWithUnicodeChars(b *testing.B) {
 			<-ch
 		}
 	}
+
 	b.SetBytes(int64(len(data)))
 }
 
 func BenchmarkParseTestdata(b *testing.B) {
-	b.StopTimer()
 	b.ReportAllocs()
+	b.StopTimer()
 
 	f, err := os.Open("./testdata/code.json.gz")
 	require.Nil(b, err)
@@ -428,20 +439,20 @@ func BenchmarkParseTestdata(b *testing.B) {
 	codeJSON, err := ioutil.ReadAll(gz)
 	require.Nil(b, err)
 
+	parser := bari.NewParser(&cyclingReader{data: string(codeJSON)})
+	ch := make(chan bari.Event)
+
 	b.StartTimer()
 
+	go func() {
+		parser.Parse(ch)
+	}()
+
 	for i := 0; i < b.N; i++ {
-		parser := bari.NewParser(bytes.NewReader(codeJSON))
-		ch := make(chan bari.Event)
-
-		go func() {
-			parser.Parse(ch)
-			close(ch)
-		}()
-
-		for ev := range ch {
-			require.Nil(b, ev.Error)
+		for j := 0; j < 396995; j++ {
+			<-ch
 		}
 	}
+
 	b.SetBytes(int64(len(codeJSON)))
 }
