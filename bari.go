@@ -438,10 +438,6 @@ func (p *Parser) readByte() byte {
 	return r
 }
 
-func (p *Parser) emitStringEvent(value string) {
-	p.ch <- Event{StringEvent, value, nil}
-}
-
 func (p *Parser) emitEvent(typ EventType, value interface{}, err error) {
 	p.ch <- Event{typ, value, err}
 }
