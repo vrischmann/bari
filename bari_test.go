@@ -320,21 +320,96 @@ func TestParseTestdata(t *testing.T) {
 	}
 }
 
+type cyclingReader struct {
+	data string
+	idx  int
+}
+
+func (r *cyclingReader) Read(b []byte) (n int, err error) {
+	if len(b) >= len(r.data) {
+		return copy(b, r.data), nil
+	}
+
+	n = copy(b, r.data[r.idx:])
+	r.idx += n
+	r.idx = r.idx % len(r.data)
+
+	return n, nil
+}
+
+func TestCyclingReader(t *testing.T) {
+	r := cyclingReader{data: `{"foo": "bar"}`}
+	b := make([]byte, 5)
+
+	n, _ := r.Read(b)
+	require.Equal(t, 5, n)
+	require.Equal(t, `{"foo`, string(b[:n]))
+
+	n, _ = r.Read(b)
+	require.Equal(t, 5, n)
+	require.Equal(t, `": "b`, string(b[:n]))
+
+	n, _ = r.Read(b)
+	require.Equal(t, 4, n)
+	require.Equal(t, `ar"}`, string(b[:n]))
+
+	n, _ = r.Read(b)
+	require.Equal(t, 5, n)
+	require.Equal(t, `{"foo`, string(b[:n]))
+}
+
 func BenchmarkParseSimpleObject(b *testing.B) {
 	b.ReportAllocs()
 
 	const data = `{"foo": "bar"}`
+	parser := bari.NewParser(&cyclingReader{data: data})
+	ch := make(chan bari.Event)
+
+	go func() {
+		parser.Parse(ch)
+	}()
+
 	for i := 0; i < b.N; i++ {
-		parser := bari.NewParser(strings.NewReader(data))
-		ch := make(chan bari.Event)
+		for j := 0; j < 6; j++ {
+			<-ch
+		}
+	}
+	b.SetBytes(int64(len(data)))
+}
 
-		go func() {
-			parser.Parse(ch)
-			close(ch)
-		}()
+func BenchmarkParseMultiObjectStream(b *testing.B) {
+	b.ReportAllocs()
 
-		for ev := range ch {
-			require.Nil(b, ev.Error)
+	const data = `{"foo": "bar"}{"foo": "bar"}{"foo": "bar"}{"foo": "bar"}`
+	parser := bari.NewParser(&cyclingReader{data: data})
+	ch := make(chan bari.Event)
+
+	go func() {
+		parser.Parse(ch)
+	}()
+
+	for i := 0; i < b.N; i++ {
+		for j := 0; j < 6; j++ {
+			<-ch
+		}
+	}
+	b.SetBytes(int64(len(data)))
+}
+
+func BenchmarkParseStringWithUnicodeChars(b *testing.B) {
+	b.ReportAllocs()
+
+	const data = `{"foo": "\u265e\u2602"}`
+	parser := bari.NewParser(&cyclingReader{data: data})
+	ch := make(chan bari.Event)
+
+	go func() {
+		parser.Parse(ch)
+	}()
+
+	for i := 0; i < b.N; i++ {
+		for j := 0; j < 6; j++ {
+			<-ch
 		}
 	}
 	b.SetBytes(int64(len(data)))
