@@ -337,7 +337,7 @@ func BenchmarkParseTestdata(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		parser := bari.NewParser(bytes.NewReader(codeJSON))
-		ch := make(chan bari.Event)
+		ch := make(chan bari.Event, 128)
 
 		go func() {
 			parser.Parse(ch)
