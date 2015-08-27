@@ -264,8 +264,6 @@ func (p *Parser) readValue() bool {
 		p.serr("unexpected character %c", r)
 		return false
 	}
-
-	return false
 }
 
 func (p *Parser) readBoolean() bool {
