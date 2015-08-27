@@ -65,7 +65,7 @@ func NewParser(r io.Reader) *Parser {
 }
 
 var (
-	eof = rune(0)
+	eof = byte(0)
 
 	errUnexpectedEOF = errors.New("unexpected end of file")
 )
@@ -74,17 +74,17 @@ func (p *Parser) Parse(ch chan Event) {
 	p.ch = ch
 loop:
 	for {
-		switch r := p.readRune(); r {
+		switch r := p.readByte(); r {
 		case eof:
 			p.serr2(errUnexpectedEOF)
 			break loop
 		case '{':
-			p.unreadRune()
+			p.unreadByte()
 			if !p.readObject() {
 				break loop
 			}
 		case '[':
-			p.unreadRune()
+			p.unreadByte()
 			if !p.readArray() {
 				break loop
 			}
@@ -99,7 +99,7 @@ loop:
 		if r == eof {
 			break
 		}
-		p.unreadRune()
+		p.unreadByte()
 
 		p.resetState()
 	}
@@ -133,7 +133,7 @@ func (p *Parser) readObject() bool {
 		p.emitEvent(ObjectEndEvent, nil, nil)
 		return true
 	}
-	p.unreadRune()
+	p.unreadByte()
 
 	for {
 		p.emitEvent(ObjectKeyEvent, nil, nil)
@@ -197,7 +197,7 @@ func (p *Parser) readArray() bool {
 		p.emitEvent(ArrayEndEvent, nil, nil)
 		return true
 	}
-	p.unreadRune()
+	p.unreadByte()
 
 	for {
 		ok := p.readValue()
@@ -230,6 +230,10 @@ func (p *Parser) getError() error {
 	return p.err
 }
 
+func isDigit(b byte) bool {
+	return b >= '0' && b <= '9'
+}
+
 func (p *Parser) readValue() bool {
 	r := p.readIgnoreWS()
 	if r == eof {
@@ -239,26 +243,26 @@ func (p *Parser) readValue() bool {
 
 	switch {
 	case r == '"':
-		p.unreadRune()
+		p.unreadByte()
 		return p.readString()
 	case r == '\'':
-		r := p.readRune()
+		r := p.readByte()
 		if r == eof {
 			return false
 		}
 
 		return true
 	case r == 'f' || r == 't':
-		p.unreadRune()
+		p.unreadByte()
 		return p.readBoolean()
-	case r == '-' || r == '+' || unicode.IsDigit(r):
-		p.unreadRune()
+	case r == '-' || r == '+' || isDigit(r):
+		p.unreadByte()
 		return p.readNumber()
 	case r == '{':
-		p.unreadRune()
+		p.unreadByte()
 		return p.readObject()
 	case r == '[':
-		p.unreadRune()
+		p.unreadByte()
 		return p.readArray()
 	default:
 		p.serr("unexpected character %c", r)
@@ -270,13 +274,13 @@ func (p *Parser) readBoolean() bool {
 	var buf bytes.Buffer
 
 	for i := 0; i < 4; i++ {
-		r := p.readRune()
+		r := p.readByte()
 		if r == eof {
 			p.serr2(errUnexpectedEOF)
 			return false
 		}
 
-		buf.WriteRune(r)
+		buf.WriteByte(r)
 	}
 
 	if buf.String() == "true" {
@@ -284,7 +288,7 @@ func (p *Parser) readBoolean() bool {
 		return true
 	}
 
-	r := p.readRune()
+	r := p.readByte()
 	if r == eof {
 		p.serr2(errUnexpectedEOF)
 		return false
@@ -305,7 +309,7 @@ func (p *Parser) readNumber() bool {
 
 	isFloat := false
 	for {
-		r := p.readRune()
+		r := p.readByte()
 		if r == eof {
 			p.serr2(errUnexpectedEOF)
 			return false
@@ -315,12 +319,12 @@ func (p *Parser) readNumber() bool {
 			isFloat = true
 		}
 
-		if r != '.' && r != 'e' && r != '+' && r != '-' && !unicode.IsDigit(r) {
-			p.unreadRune()
+		if r != '.' && r != 'e' && r != '+' && r != '-' && !isDigit(r) {
+			p.unreadByte()
 			break
 		}
 
-		buf.WriteRune(r)
+		buf.WriteByte(r)
 	}
 
 	if isFloat {
@@ -363,7 +367,7 @@ func (p *Parser) readString() bool {
 	}
 
 	for {
-		r = p.readRune()
+		r = p.readByte()
 		if r == eof {
 			p.serr2(errUnexpectedEOF)
 			return false
@@ -373,7 +377,7 @@ func (p *Parser) readString() bool {
 			break
 		}
 
-		buf.WriteRune(r)
+		buf.WriteByte(r)
 	}
 
 	decoded, ok := decodeToUTF8(buf.Bytes())
@@ -387,27 +391,36 @@ func (p *Parser) readString() bool {
 	return true
 }
 
-func (p *Parser) readIgnoreWS() rune {
-	r := p.readRune()
-	for r != eof && unicode.IsSpace(r) {
+func isSpace(b byte) bool {
+	switch b {
+	case '\t', '\n', '\v', '\f', '\r', ' ', 0x85, 0xA0:
+		return true
+	default:
+		return false
+	}
+}
+
+func (p *Parser) readIgnoreWS() byte {
+	r := p.readByte()
+	for r != eof && isSpace(r) {
 		// eat whitespaces
 
-		r = p.readRune()
+		r = p.readByte()
 	}
 	return r
 }
 
-func (p *Parser) unreadRune() {
+func (p *Parser) unreadByte() {
 	p.position--
 	if p.unreadChangesLine {
 		p.line--
 		p.position = 0
 	}
-	p.br.UnreadRune()
+	p.br.UnreadByte()
 }
 
-func (p *Parser) readRune() rune {
-	r, _, err := p.br.ReadRune()
+func (p *Parser) readByte() byte {
+	r, err := p.br.ReadByte()
 	if err != nil {
 		p.err = err
 		return eof
