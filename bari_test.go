@@ -320,6 +320,26 @@ func TestParseTestdata(t *testing.T) {
 	}
 }
 
+func BenchmarkParseSimpleObject(b *testing.B) {
+	b.ReportAllocs()
+
+	const data = `{"foo": "bar"}`
+	for i := 0; i < b.N; i++ {
+		parser := bari.NewParser(strings.NewReader(data))
+		ch := make(chan bari.Event)
+
+		go func() {
+			parser.Parse(ch)
+			close(ch)
+		}()
+
+		for ev := range ch {
+			require.Nil(b, ev.Error)
+		}
+	}
+	b.SetBytes(int64(len(data)))
+}
+
 func BenchmarkParseTestdata(b *testing.B) {
 	b.StopTimer()
 	b.ReportAllocs()
@@ -337,7 +357,7 @@ func BenchmarkParseTestdata(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		parser := bari.NewParser(bytes.NewReader(codeJSON))
-		ch := make(chan bari.Event, 128)
+		ch := make(chan bari.Event)
 
 		go func() {
 			parser.Parse(ch)
