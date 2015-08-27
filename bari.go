@@ -303,7 +303,8 @@ func (p *Parser) readBoolean() bool {
 }
 
 func (p *Parser) readNumber() bool {
-	var buf bytes.Buffer
+	buf.Reset()
+
 	isFloat := false
 	for {
 		r := p.readRune()
@@ -347,7 +348,11 @@ func (p *Parser) readNumber() bool {
 	return true
 }
 
+var buf bytes.Buffer
+
 func (p *Parser) readString() bool {
+	buf.Reset()
+
 	r := p.readIgnoreWS()
 	if r == eof {
 		p.serr2(errUnexpectedEOF)
@@ -359,7 +364,6 @@ func (p *Parser) readString() bool {
 		return false
 	}
 
-	var buf bytes.Buffer
 	for {
 		r = p.readRune()
 		if r == eof {
