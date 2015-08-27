@@ -308,20 +308,18 @@ func (p *Parser) readNumber() bool {
 	buf.Reset()
 
 	isFloat := false
+loop:
 	for {
-		r := p.readByte()
-		if r == eof {
+		var r byte
+		switch r = p.readByte(); {
+		case r == eof:
 			p.serr2(errUnexpectedEOF)
 			return false
-		}
-
-		if r == '.' || r == 'e' {
+		case r == '.' || r == 'e' || r == 'E':
 			isFloat = true
-		}
-
-		if r != '.' && r != 'e' && r != '+' && r != '-' && !isDigit(r) {
+		case r != '.' && r != 'e' && r != 'E' && r != '+' && r != '-' && !isDigit(r):
 			p.unreadByte()
-			break
+			break loop
 		}
 
 		buf.WriteByte(r)
