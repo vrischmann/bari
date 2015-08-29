@@ -17,29 +17,53 @@ import (
 type EventType uint
 
 const (
-	// UnknownEvent is an invalid event
+	// UnknownEvent is an invalid event.
 	UnknownEvent EventType = iota
-	// ObjectStartEvent is emitted at the start of a JSON object
+	// ObjectStartEvent is emitted at the start of a JSON object.
 	ObjectStartEvent
-	// ObjectKeyEvent is emitted at the start of the key of a JSON object
+	// ObjectKeyEvent is emitted at the start of a key of a JSON object.
 	ObjectKeyEvent
+	// ObjectValueEvent is emitted at the start of a value of a JSON object.
 	ObjectValueEvent
+	// ObjectEndEvent is emitted at the end of a JSON object.
 	ObjectEndEvent
+	// ArrayStartEvent is emitted at the start of a JSON array.
 	ArrayStartEvent
+	// ArrayEndEvent is emitted at the end of a JSON array.
 	ArrayEndEvent
+	// StringEvent is emitted for each string.
 	StringEvent
+	// NumberEvent is emitted for each number. The associated value will be either a float64 or a int64.
 	NumberEvent
+	// BooleanEvent is emitted for each boolean value.
 	BooleanEvent
+	// NullEvent is emitted for each null value.
 	NullEvent
+	// EOFEvent is emitted when parsing has stopped, either because the source input is finished or because there was an error.
 	EOFEvent
 )
 
+// A Event represents a point of interest in a JSON document.
+//
+// Events are emitted at the start of objects, arrays, and for each values.
+// For example, given the following JSON data:
+//   {"foo": "bar"}
+//
+// The following events will be emitted in order:
+//
+//   ObjectStartEvent
+//   ObjectKeyEvent
+//   StringEvent "foo"
+//   ObjectValueEvent
+//   StringEvent "bar"
+//   ObjectEndEvent
 type Event struct {
 	Type  EventType
 	Value interface{}
 	Error error
 }
 
+// A Parser reads and parses JSON documents from an input stream.
 type Parser struct {
 	br *bufio.Reader
 
@@ -51,6 +75,9 @@ type Parser struct {
 	position          int
 }
 
+// A ParseError is attached to an event in case of a parsing error.
+//
+// It contains additional information about where the error occurred in the input stream.
 type ParseError struct {
 	Message  string
 	Line     int
@@ -61,6 +88,7 @@ func (p ParseError) Error() string {
 	return fmt.Sprintf("ParseError: l:%d pos:%d msg:%s", p.Line, p.Position, p.Message)
 }
 
+// NewParser creates a new parser that reads from r.
 func NewParser(r io.Reader) *Parser {
 	return &Parser{
 		br:   bufio.NewReader(r),
@@ -74,6 +102,9 @@ var (
 	errUnexpectedEOF = errors.New("unexpected end of file")
 )
 
+// Parse starts parsing data from the input stream and emit events.
+//
+// This method parses data until the input stream is empty.
 func (p *Parser) Parse(ch chan Event) {
 	p.ch = ch
 loop:
