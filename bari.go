@@ -12,12 +12,16 @@ import (
 	"unicode/utf8"
 )
 
+// EventType is the type of event generated.
 //go:generate stringer --type=EventType
 type EventType uint
 
 const (
+	// UnknownEvent is an invalid event
 	UnknownEvent EventType = iota
+	// ObjectStartEvent is emitted at the start of a JSON object
 	ObjectStartEvent
+	// ObjectKeyEvent is emitted at the start of the key of a JSON object
 	ObjectKeyEvent
 	ObjectValueEvent
 	ObjectEndEvent
